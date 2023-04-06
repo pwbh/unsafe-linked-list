@@ -69,11 +69,43 @@ impl<T> List<T> {
     pub fn peek_mut(&mut self) -> Option<&mut T> {
         unsafe { self.head.as_mut().map(|n| &mut n.value) }
     }
+
+    pub fn iter(&self) -> ListIter<'_, T> {
+        unsafe {
+            ListIter {
+                next: Some(&(*self.head)),
+            }
+        }
+    }
 }
 
 impl<T> Drop for List<T> {
     fn drop(&mut self) {
         while let Some(_) = self.pop() {}
+    }
+}
+
+struct ListIter<'a, T> {
+    next: Option<&'a Node<T>>,
+}
+
+impl<'a, T> Iterator for ListIter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(n) = self.next {
+            unsafe {
+                if n.next.is_null() {
+                    self.next = None
+                } else {
+                    self.next = Some(&(*n.next));
+                }
+            }
+
+            Some(&n.value)
+        } else {
+            None
+        }
     }
 }
 
@@ -101,5 +133,22 @@ mod tests {
         };
 
         assert_eq!(list.peek(), Some(&10))
+    }
+
+    #[test]
+    fn test_list_iter() {
+        let mut list = List::new();
+
+        list.push(1);
+        list.push(2);
+        list.push(3);
+        list.push(4);
+
+        let mut list_iter = list.iter();
+
+        assert_eq!(list_iter.next(), Some(&4));
+        assert_eq!(list_iter.next(), Some(&3));
+        assert_eq!(list_iter.next(), Some(&2));
+        assert_eq!(list_iter.next(), Some(&1));
     }
 }
